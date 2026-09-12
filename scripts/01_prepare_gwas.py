@@ -21,10 +21,10 @@ print("Loading GWAS summary statistics...")
 
 df = pd.read_csv(
     INPUT_FILE,
-    sep="\t"
+    sep="\t" # tap 기준으로 칼럼 나눠 읽음
 )
 
-print(f"Total variants: {len(df):,}")
+print(f"Total variants: {len(df):,}") # 행의 개수
 
 
 # =========================
@@ -32,6 +32,7 @@ print(f"Total variants: {len(df):,}")
 # =========================
 
 df = df[df["chromosome"].astype(str) == "22"].copy()
+# 22번 염색체만 가지고 시범 운행? 분석?
 
 print(f"Chr22 variants: {len(df):,}")
 
@@ -41,6 +42,7 @@ print(f"Chr22 variants: {len(df):,}")
 # =========================
 
 df["z"] = df["beta"] / df["standard_error"]
+# Z score 계산
 
 
 # =========================
@@ -79,13 +81,15 @@ df = df.dropna(
         "standard_error",
         "p_value"
     ]
-)
+) # 결측치 NaN 제거
 
 # Remove variants with invalid standard errors
 df = df[df["standard_error"] > 0]
+# SE가 양수인 것만 남김
 
 # Keep finite Z-scores
 df = df[np.isfinite(df["z"])]
+# Z score 유효한 값만 남김
 
 
 # =========================
