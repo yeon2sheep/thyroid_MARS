@@ -151,7 +151,7 @@ df = df.dropna(
         "standard_error",
         "p_value",
     ]
-)
+) # NaN 값 제거
 
 print(
     f"Removed missing required values: "
@@ -179,7 +179,7 @@ def is_snp(row):
         and row["other_allele"] in valid_bases
         and row["effect_allele"] != row["other_allele"]
     )
-
+# A, G, C, T << 이렇게 하나만 있는 것만 남김. A/G << 이런거는 뺌
 
 snp_mask = df.apply(
     is_snp,
@@ -203,6 +203,7 @@ before = len(df)
 df = df[
     df["standard_error"] > 0
 ].copy()
+# SE 0 보다 큰 값만 남김
 
 print(
     f"Invalid SE removed: "
@@ -223,6 +224,7 @@ invalid_z = (
     df["z"].isna()
     | ~np.isfinite(df["z"])
 )
+# inf, NaN 같은 값 제거
 
 print(
     f"Invalid Z-scores removed: "
@@ -247,6 +249,13 @@ df["variant_key"] = (
     + ":"
     + df["other_allele"]
 )
+# variant_key 생성
+# chr22
+# position = 11012345
+# EA = A
+# OA = G
+
+# 이면 22:11012345:A:G 로 만듦
 
 
 # ============================================================
@@ -258,6 +267,7 @@ duplicate_count = (
     .duplicated()
     .sum()
 )
+# variant_key 중복 제거
 
 print(
     f"Duplicate variants removed: "
@@ -281,6 +291,7 @@ df = df.sort_values(
 ).reset_index(
     drop=True
 )
+# 22번 SNP을 순서대로 정렬
 
 
 # ============================================================

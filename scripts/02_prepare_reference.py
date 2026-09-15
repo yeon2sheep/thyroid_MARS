@@ -81,6 +81,7 @@ gwas = pd.read_csv(
     GWAS_FILE,
     sep="\t"
 )
+# 1번 코드에서 만든 GWAS 읽음
 
 targets = gwas[
     [
@@ -88,11 +89,13 @@ targets = gwas[
         "base_pair_location",
     ]
 ].copy()
+# 그 파일에서 염색체랑 위치만 가져옴 (22, 11012345)
 
 targets["CHROM"] = (
     "chr"
     + targets["chromosome"].astype(str)
 )
+# 표기 맞춤 (22 -> chr22)
 
 targets["POS"] = (
     targets["base_pair_location"]
@@ -105,6 +108,7 @@ targets = targets[
         "POS",
     ]
 ].drop_duplicates()
+# 중복 제거..
 
 targets = targets.sort_values(
     [
@@ -112,6 +116,7 @@ targets = targets.sort_values(
         "POS",
     ]
 )
+# 위치순으로 정렬 (결국 chr22 11012345 이런 식의 2열짜리 행렬 만들어짐)
 
 print(
     f"GWAS target positions: "
@@ -129,6 +134,7 @@ targets.to_csv(
     header=False,
     index=False
 )
+# bcftools 용 타켓 파일 생성 (pandas로는 너무 많아서 못 읽음)
 
 print(
     f"Target file: {TARGET_FILE}"
@@ -139,6 +145,7 @@ print(
 # 5. Check EAS samples
 # ============================================================
 
+# EAS.sample.txt를 읽어서 sample ID 가져옴 HG0004 이런거
 with open(
     EAS_SAMPLE_FILE,
     "r"
@@ -176,24 +183,28 @@ cmd = [
     "view",
 
     "-S",
-    str(EAS_SAMPLE_FILE),
+    str(EAS_SAMPLE_FILE), # 504명 번호들
 
     "-T",
-    str(TARGET_FILE),
+    str(TARGET_FILE), 
 
     "-m2",
-    "-M2",
+    "-M2", # allele 이 정확히 2개인 variant만
 
     "-v",
-    "snps",
+    "snps", # snp만 추출
 
-    "-Oz",
+    "-Oz", # 압축된 .vcf.gz 형태로 출력
 
     "-o",
     str(OUTPUT_VCF),
 
     str(VCF_FILE),
 ]
+# bcftools 로 실제 추출
+# chr22 전체 1000 지놈 VCF에서 EAS 504명 데이터 중 
+# GWAS에서 사용되는 타겟 포지션에 해당하는 biallelic SNP만 뽑아서 
+# 압축 VCF로 저장
 
 subprocess.run(
     cmd,
@@ -216,6 +227,7 @@ subprocess.run(
     ],
     check=True
 )
+# 인덱스 생성
 
 
 # ============================================================

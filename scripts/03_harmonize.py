@@ -47,6 +47,7 @@ COMPLEMENT = {
     "C": "G",
     "G": "C",
 }
+# DNA strand complement 정의
 
 
 # ============================================================
@@ -144,7 +145,8 @@ def classify_alleles(effect, other, ref, alt):
 
     return "ALLELE_MISMATCH", None
 
-
+# 왜 팔서가...
+#genotype을 숫자로 바꿈
 def parse_gt(gt):
     """
     Convert a VCF genotype string into ALT dosage.
