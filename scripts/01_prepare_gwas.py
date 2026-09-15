@@ -1,55 +1,78 @@
+import numpy as np
 import pandas as pd
 from pathlib import Path
-import numpy as np
 
 
-# =========================
-# 1. File paths
-# =========================
+# ============================================================
+# 1. Project paths
+# ============================================================
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 
-INPUT_FILE = PROJECT_DIR / "data" / "gwas" / "GCST90627762.tsv"
-OUTPUT_FILE = PROJECT_DIR / "data" / "processed" / "GCST90627762_chr22.tsv"
+INPUT_FILE = (
+    PROJECT_DIR
+    / "data"
+    / "gwas"
+    / "GCST90627762.tsv"
+)
+
+OUTPUT_DIR = (
+    PROJECT_DIR
+    / "data"
+    / "processed"
+)
+
+OUTPUT_FILE = (
+    OUTPUT_DIR
+    / "GCST90627762_chr22_prepared.tsv"
+)
+
+OUTPUT_DIR.mkdir(
+    parents=True,
+    exist_ok=True
+)
 
 
-# =========================
-# 2. Load GWAS summary
-# =========================
+# ============================================================
+# 2. Load GWAS summary statistics
+# ============================================================
 
-print("Loading GWAS summary statistics...")
+print("=" * 70)
+print("01. GWAS PREPARATION")
+print("=" * 70)
+
+print(f"Input: {INPUT_FILE}")
 
 df = pd.read_csv(
     INPUT_FILE,
-    sep="\t" # tap 기준으로 칼럼 나눠 읽음
+    sep="\t"
 )
 
-print(f"Total variants: {len(df):,}") # 행의 개수
+print(f"Total GWAS variants: {len(df):,}")
 
 
-# =========================
-# 3. Select chromosome 22
-# =========================
+# ============================================================
+# 3. Select chr22
+# ============================================================
 
-df = df[df["chromosome"].astype(str) == "22"].copy()
-# 22번 염색체만 가지고 시범 운행? 분석?
+df["chromosome"] = (
+    df["chromosome"]
+    .astype(str)
+    .str.replace("chr", "", regex=False)
+)
+
+df = df[
+    df["chromosome"] == "22"
+].copy()
 
 print(f"Chr22 variants: {len(df):,}")
 
 
-# =========================
-# 4. Calculate Z-score
-# =========================
+# ============================================================
+# 4. Keep required columns
+# ============================================================
 
-df["z"] = df["beta"] / df["standard_error"]
-# Z score 계산
-
-
-# =========================
-# 5. Keep required columns
-# =========================
-
-columns = [
+required_columns = [
     "chromosome",
     "base_pair_location",
     "effect_allele",
@@ -60,60 +83,209 @@ columns = [
     "p_value",
     "variant_id",
     "n",
-    "z"
 ]
 
-df = df[columns]
+missing_columns = [
+    col
+    for col in required_columns
+    if col not in df.columns
+]
+
+if missing_columns:
+    raise ValueError(
+        f"Missing GWAS columns: {missing_columns}"
+    )
+
+df = df[
+    required_columns
+].copy()
 
 
-# =========================
-# 6. Basic QC
-# =========================
+# ============================================================
+# 5. Basic cleaning
+# ============================================================
 
-# Remove missing values required for downstream analysis
+df["base_pair_location"] = pd.to_numeric(
+    df["base_pair_location"],
+    errors="coerce"
+)
+
+df["beta"] = pd.to_numeric(
+    df["beta"],
+    errors="coerce"
+)
+
+df["standard_error"] = pd.to_numeric(
+    df["standard_error"],
+    errors="coerce"
+)
+
+df["p_value"] = pd.to_numeric(
+    df["p_value"],
+    errors="coerce"
+)
+
+df["effect_allele"] = (
+    df["effect_allele"]
+    .astype(str)
+    .str.strip()
+    .str.upper()
+)
+
+df["other_allele"] = (
+    df["other_allele"]
+    .astype(str)
+    .str.strip()
+    .str.upper()
+)
+
+
+before = len(df)
+
 df = df.dropna(
     subset=[
-        "chromosome",
         "base_pair_location",
         "effect_allele",
         "other_allele",
         "beta",
         "standard_error",
-        "p_value"
+        "p_value",
     ]
-) # 결측치 NaN 제거
-
-# Remove variants with invalid standard errors
-df = df[df["standard_error"] > 0]
-# SE가 양수인 것만 남김
-
-# Keep finite Z-scores
-df = df[np.isfinite(df["z"])]
-# Z score 유효한 값만 남김
-
-
-# =========================
-# 7. Identify SNPs
-# =========================
-
-def is_snp(allele):
-    return len(str(allele)) == 1 and str(allele).upper() in {"A", "C", "G", "T"}
-
-
-df["is_snp"] = (
-    df["effect_allele"].apply(is_snp)
-    & df["other_allele"].apply(is_snp)
 )
 
-print(f"SNP variants: {df['is_snp'].sum():,}")
-print(f"Non-SNP variants: {(~df['is_snp']).sum():,}")
+print(
+    f"Removed missing required values: "
+    f"{before - len(df):,}"
+)
 
 
-# =========================
-# 8. Save
-# =========================
+# ============================================================
+# 6. Keep valid biallelic SNPs
+# ============================================================
 
-OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
+valid_bases = {
+    "A",
+    "C",
+    "G",
+    "T",
+}
+
+
+def is_snp(row):
+    return (
+        len(row["effect_allele"]) == 1
+        and len(row["other_allele"]) == 1
+        and row["effect_allele"] in valid_bases
+        and row["other_allele"] in valid_bases
+        and row["effect_allele"] != row["other_allele"]
+    )
+
+
+snp_mask = df.apply(
+    is_snp,
+    axis=1
+)
+
+print(
+    f"Non-SNP / invalid allele rows removed: "
+    f"{(~snp_mask).sum():,}"
+)
+
+df = df[snp_mask].copy()
+
+
+# ============================================================
+# 7. Remove invalid standard errors
+# ============================================================
+
+before = len(df)
+
+df = df[
+    df["standard_error"] > 0
+].copy()
+
+print(
+    f"Invalid SE removed: "
+    f"{before - len(df):,}"
+)
+
+
+# ============================================================
+# 8. Calculate Z-score
+# ============================================================
+
+df["z"] = (
+    df["beta"]
+    / df["standard_error"]
+)
+
+invalid_z = (
+    df["z"].isna()
+    | ~np.isfinite(df["z"])
+)
+
+print(
+    f"Invalid Z-scores removed: "
+    f"{invalid_z.sum():,}"
+)
+
+df = df[
+    ~invalid_z
+].copy()
+
+
+# ============================================================
+# 9. Create variant key
+# ============================================================
+
+df["variant_key"] = (
+    df["chromosome"].astype(str)
+    + ":"
+    + df["base_pair_location"].astype(int).astype(str)
+    + ":"
+    + df["effect_allele"]
+    + ":"
+    + df["other_allele"]
+)
+
+
+# ============================================================
+# 10. Remove duplicate variants
+# ============================================================
+
+duplicate_count = (
+    df["variant_key"]
+    .duplicated()
+    .sum()
+)
+
+print(
+    f"Duplicate variants removed: "
+    f"{duplicate_count:,}"
+)
+
+df = df[
+    ~df["variant_key"].duplicated()
+].copy()
+
+
+# ============================================================
+# 11. Sort
+# ============================================================
+
+df = df.sort_values(
+    [
+        "base_pair_location",
+        "variant_key",
+    ]
+).reset_index(
+    drop=True
+)
+
+
+# ============================================================
+# 12. Save
+# ============================================================
 
 df.to_csv(
     OUTPUT_FILE,
@@ -121,7 +293,26 @@ df.to_csv(
     index=False
 )
 
+
+# ============================================================
+# 13. Summary
+# ============================================================
+
 print()
-print("Preparation complete.")
-print(f"Output: {OUTPUT_FILE}")
-print(f"Final variants: {len(df):,}")
+print("=" * 70)
+print("GWAS PREPARATION COMPLETE")
+print("=" * 70)
+
+print(
+    f"Final chr22 SNPs : {len(df):,}"
+)
+
+print(
+    f"Output            : {OUTPUT_FILE}"
+)
+
+print()
+print("Columns:")
+print(
+    df.columns.tolist()
+)
