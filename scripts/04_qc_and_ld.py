@@ -71,7 +71,8 @@ SUMMARY_FILE = (
 # ============================================================
 
 MISSING_RATE_THRESHOLD = 0.10
-
+# 한 SNP에서 genotype이 10% 보다 많이 missing되면 그 SNP 제거하는 그 기준
+# EAS 샘플이 504명이니까 약 51명 이상 genotype이 미싱되는 SNP 제거
 
 # ============================================================
 # 3. Start
@@ -105,7 +106,7 @@ genotype_df = pd.read_csv(
     GENOTYPE_FILE,
     sep="\t"
 )
-
+# 3번 코드 결과 읽기
 
 print(f"Input SNPs      : {len(matched):,}")
 

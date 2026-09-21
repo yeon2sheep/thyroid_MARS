@@ -23,9 +23,9 @@ GENOTYPE_FILE = FINAL_DIR / "chr22_final_genotype.tsv"
 # 2. Analysis settings
 # ============================================================
 
-BIN_SIZE = 500_000
+BIN_SIZE = 500_000 # 500kb로 나눔
 
-MIN_SNPS_PER_BIN = 10
+MIN_SNPS_PER_BIN = 10 # 일단 10개 이하는 없애는 거로 했는데 흠..
 MAX_SNPS_PER_BIN = 1_000
 
 CHROMOSOME = "chr22"
